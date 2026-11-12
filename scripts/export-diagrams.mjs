@@ -5,16 +5,16 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const sourceRoot = join(root, "HLD");
-const outputRoot = join(sourceRoot, "images");
+const outputRoot = join(root, "output", "image");
 const entryFile = join(root, ".diagram-export-entry.html");
+const skippedDirectories = new Set(["node_modules", ".git", "output"]);
 
 async function findSources(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
 
   for (const entry of entries) {
-    if (entry.name === "images") continue;
+    if (entry.isDirectory() && skippedDirectories.has(entry.name)) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await findSources(path));
     if (entry.isFile() && extname(entry.name) === ".excalidraw") files.push(path);
@@ -23,9 +23,9 @@ async function findSources(directory) {
   return files;
 }
 
-const sources = await findSources(sourceRoot);
+const sources = await findSources(root);
 if (sources.length === 0) {
-  console.log("No .excalidraw files found under HLD.");
+  console.log("No .excalidraw files found.");
   process.exit(0);
 }
 
@@ -71,7 +71,7 @@ try {
     await window.exportDiagrams(files);
   }, sources.map((path) => ({
     source: relative(root, path).replaceAll("\\", "/"),
-    output: join(outputRoot, `${relative(sourceRoot, path).replaceAll("\\", "/").replace(/\.excalidraw$/, "")}.svg`),
+    output: join(outputRoot, `${relative(root, path).replaceAll("\\", "/").replace(/\.excalidraw$/, "")}.svg`),
   })));
 } finally {
   await browser.close();
